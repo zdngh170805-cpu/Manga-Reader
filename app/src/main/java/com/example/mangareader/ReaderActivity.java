@@ -2,8 +2,8 @@ package com.example.mangareader;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ActivityInfo;
 import android.content.res.ColorStateList;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -536,7 +536,7 @@ public class ReaderActivity extends Activity {
 
     private class ReaderAdapter extends RecyclerView.Adapter<ReaderAdapter.VH> {
 
-        private static class VH extends RecyclerView.ViewHolder {
+        private class VH extends RecyclerView.ViewHolder {
             VH(View v) {
                 super(v);
             }
@@ -588,7 +588,7 @@ public class ReaderActivity extends Activity {
 
     private class ContinuousAdapter extends RecyclerView.Adapter<ContinuousAdapter.VH> {
 
-        private static class VH extends RecyclerView.ViewHolder {
+        private class VH extends RecyclerView.ViewHolder {
             final ContinuousPageView v;
 
             VH(ContinuousPageView v) {
