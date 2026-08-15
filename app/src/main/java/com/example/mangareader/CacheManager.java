@@ -3,6 +3,8 @@ package com.example.mangareader;
 import android.content.Context;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Locale;
 
 public final class CacheManager {
@@ -66,5 +68,41 @@ public final class CacheManager {
             return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024));
         }
         return String.format(Locale.ROOT, "%.2f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+
+    public static void trimThumbs(Context c) {
+        int limit = Prefs.get(c).thumbLimitMb();
+        if (limit <= 0) return;
+        long max = (long) limit * 1024 * 1024;
+        File dir = thumbsDir(c);
+        File[] files = dir.listFiles();
+        if (files == null || files.length == 0) return;
+        long total = size(dir);
+        if (total <= max) return;
+        Arrays.sort(files, Comparator.comparingLong(File::lastModified));
+        for (File f : files) {
+            if (total <= max) break;
+            total -= f.length();
+            f.delete();
+        }
+    }
+
+    public static void cleanupZip(Context c) {
+        int days = Prefs.get(c).zipRetentionDays();
+        if (days <= 0) return;
+        long cutoff = System.currentTimeMillis() - (long) days * 24 * 60 * 60 * 1000;
+        File dir = zipDir(c);
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.lastModified() < cutoff) {
+                f.delete();
+            }
+        }
+    }
+
+    public static void cleanup(Context c) {
+        trimThumbs(c);
+        cleanupZip(c);
     }
 }

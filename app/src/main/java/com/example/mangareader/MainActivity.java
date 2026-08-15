@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         prefs = Prefs.get(this);
         db = ComicDb.get(this);
+        CacheManager.cleanup(getApplicationContext());
         maybeRequestStorage();
     }
 

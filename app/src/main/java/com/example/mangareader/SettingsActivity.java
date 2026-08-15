@@ -32,6 +32,10 @@ public class SettingsActivity extends Activity {
         build();
     }
 
+    private String t(String key) {
+        return Strings.get(this, key);
+    }
+
     private void build() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -44,94 +48,144 @@ public class SettingsActivity extends Activity {
 
         setContentView(scroll);
 
-        section("GENERAL");
+        section(t("general"));
         String[] themes = {"System", "Dark", "Light"};
-        String[] names = {"System", "Dark", "Light"};
-        clickRow("Tema", "Saat ini: " + themes[prefs.theme()], v -> {
+        clickRow(t("theme"), t("current") + themes[prefs.theme()], v -> {
             showDialog(new AlertDialog.Builder(this)
-                    .setTitle("Tema")
-                    .setSingleChoiceItems(names, prefs.theme(), (d, which) -> {
+                    .setTitle(t("theme"))
+                    .setSingleChoiceItems(themes, prefs.theme(), (d, which) -> {
                         prefs.setTheme(which);
                         d.dismiss();
                         recreate();
                     })
-                    .setNegativeButton("Batal", null));
+                    .setNegativeButton(t("cancel"), null));
         });
-        clickRow("Reset Settings", "Kembalikan semua pengaturan ke default", v -> {
-            confirm("Reset Settings", "Semua pengaturan akan dikembalikan ke default.",
+
+        final String[] langNames = {"System", "English", "Bahasa Indonesia"};
+        clickRow(t("language"), t("current") + langNames[prefs.language()], v -> {
+            showDialog(new AlertDialog.Builder(this)
+                    .setTitle(t("language"))
+                    .setSingleChoiceItems(langNames, prefs.language(), (d, which) -> {
+                        prefs.setLanguage(which);
+                        d.dismiss();
+                        recreate();
+                    })
+                    .setNegativeButton(t("cancel"), null));
+        });
+
+        final String[] encNames = {"System", "UTF-8", "ISO-8859-1"};
+        clickRow(t("encoding"), t("current") + encNames[prefs.encoding()], v -> {
+            showDialog(new AlertDialog.Builder(this)
+                    .setTitle(t("encoding"))
+                    .setSingleChoiceItems(encNames, prefs.encoding(), (d, which) -> {
+                        prefs.setEncoding(which);
+                        d.dismiss();
+                        rebuild();
+                    })
+                    .setNegativeButton(t("cancel"), null));
+        });
+
+        clickRow(t("reset"), t("reset_desc"), v -> {
+            confirm(t("reset"), t("reset_desc"),
                     () -> {
                         prefs.resetAll();
                         recreate();
                     });
         });
-        clickRow("Akses semua file", hasAllFilesAccess()
-                ? "Izin aktif" : "Aktifkan akses folder lokal langsung", v -> openAllFilesSettings());
+        clickRow(t("all_files"), hasAllFilesAccess()
+                ? t("all_files_on") : t("all_files_off"), v -> openAllFilesSettings());
 
-        section("LIST VIEW");
-        switchRow("Quick view floating button", "Buka file terakhir dengan tombol melayang",
+        section(t("list_view"));
+        switchRow(t("fab"), t("fab_desc"),
                 prefs.fab(), (b, c) -> prefs.setFab(c));
-        switchRow("Show statusbar", "Tampilkan statusbar untuk waktu, baterai",
+        switchRow(t("show_statusbar"), t("show_statusbar_desc"),
                 prefs.showStatusbar(), (b, c) -> prefs.setShowStatusbar(c));
-        switchRow("Show folder path", "Tampilkan path folder di browser",
+        switchRow(t("show_folder"), t("show_folder_desc"),
                 prefs.showFolderPath(), (b, c) -> prefs.setShowFolderPath(c));
 
-        section("RESUME PAGE");
-        switchRow("Resume page", "Lanjutkan dari halaman terakhir",
+        section(t("resume_sec"));
+        switchRow(t("resume"), t("resume_desc"),
                 prefs.resumeEnabled(), (b, c) -> prefs.setResumeEnabled(c));
-        clickRow("Sync resume page (beta)", "Sinkronkan posisi baca via Google Drive", v ->
-                toast("Fitur beta belum diimplementasikan."));
+        clickRow(t("sync"), t("sync_desc"), v ->
+                toast(t("sync_beta")));
 
-        section("IMAGE VIEW");
-        switchRow("Full screen", "Sembunyikan status bar & navigation bar",
+        section(t("image_view"));
+        switchRow(t("fullscreen"), t("fullscreen_desc"),
                 prefs.fullscreen(), (b, c) -> prefs.setFullscreen(c));
-        switchRow("Page dividing line - dual pages",
-                "Tampilkan garis pemisah antar dua halaman",
+        switchRow(t("dual_divider"), t("dual_divider_desc"),
                 prefs.dualDivider(), (b, c) -> prefs.setDualDivider(c));
-        switchRow("Page dividing line - scroll pages",
-                "Garis pemisah antar halaman saat scroll vertikal / kontinu",
+        switchRow(t("scroll_divider"), t("scroll_divider_desc"),
                 prefs.scrollDivider(), (b, c) -> prefs.setScrollDivider(c));
-        switchRow("Punch hole display - portrait",
-                "Perluas area gambar di sekitar punch-hole (potret)",
+        switchRow(t("punch_portrait"), t("punch_portrait_desc"),
                 prefs.punchHolePortrait(), (b, c) -> prefs.setPunchHolePortrait(c));
-        switchRow("Punch hole display - landscape",
-                "Perluas area gambar di sekitar punch-hole (lanskap)",
+        switchRow(t("punch_landscape"), t("punch_landscape_desc"),
                 prefs.punchHoleLandscape(), (b, c) -> prefs.setPunchHoleLandscape(c));
+        switchRow(t("left_scrollbar"), t("left_scrollbar_desc"),
+                prefs.leftScrollbar(), (b, c) -> prefs.setLeftScrollbar(c));
 
-        section("CACHE DATA");
-        infoRow("Thumbnails", CacheManager.human(CacheManager.size(CacheManager.thumbsDir(this))));
-        infoRow("Halaman terekstrak", CacheManager.human(CacheManager.size(CacheManager.pagesDir(this))));
-        infoRow("Arsip ZIP/CBZ", CacheManager.human(CacheManager.size(CacheManager.zipDir(this))));
+        section(t("cache_data"));
+        infoRow(t("thumbs"), CacheManager.human(CacheManager.size(CacheManager.thumbsDir(this))));
+        infoRow(t("extracted"), CacheManager.human(CacheManager.size(CacheManager.pagesDir(this))));
+        infoRow(t("ziparchives"), CacheManager.human(CacheManager.size(CacheManager.zipDir(this))));
 
-        clickRow("Clear Thumbnails", "Hapus semua thumbnail", v ->
-                confirm("Clear Thumbnails", "Hapus semua thumbnail?",
+        final String[] limOpts = {t("unlimited"), "50 MB", "100 MB", "200 MB", "500 MB"};
+        final int[] limVals = {0, 50, 100, 200, 500};
+        clickRow(t("thumb_limit"), t("current") + limOpts[indexOf(limVals, prefs.thumbLimitMb())], v ->
+                showDialog(new AlertDialog.Builder(this)
+                        .setTitle(t("thumb_limit"))
+                        .setSingleChoiceItems(limOpts, indexOf(limVals, prefs.thumbLimitMb()),
+                                (d, which) -> {
+                                    prefs.setThumbLimitMb(limVals[which]);
+                                    d.dismiss();
+                                    rebuild();
+                                })
+                        .setNegativeButton(t("cancel"), null)));
+
+        final String[] retOpts = {retentionLabel(1), retentionLabel(3), retentionLabel(7),
+                retentionLabel(14), retentionLabel(30)};
+        final int[] retVals = {1, 3, 7, 14, 30};
+        clickRow(t("zip_retention"), t("current") + retOpts[indexOf(retVals, prefs.zipRetentionDays())],
+                v -> showDialog(new AlertDialog.Builder(this)
+                        .setTitle(t("zip_retention"))
+                        .setMessage(t("zip_retention_desc"))
+                        .setSingleChoiceItems(retOpts, indexOf(retVals, prefs.zipRetentionDays()),
+                                (d, which) -> {
+                                    prefs.setZipRetentionDays(retVals[which]);
+                                    d.dismiss();
+                                    rebuild();
+                                })
+                        .setNegativeButton(t("cancel"), null)));
+
+        clickRow(t("clear_thumbs"), t("clear_thumbs_desc"), v ->
+                confirm(t("clear_thumbs"), t("clear_thumbs_q"),
                         () -> {
                             CacheManager.clear(CacheManager.thumbsDir(this));
                             rebuild();
                         }));
-        clickRow("Clear halaman & arsip", "Hapus cache ZIP dan halaman terekstrak", v ->
-                confirm("Clear cache", "Hapus cache ZIP dan halaman terekstrak?",
+        clickRow(t("clear_pages"), t("clear_pages_desc"), v ->
+                confirm(t("clear_cache_title"), t("clear_cache_q"),
                         () -> {
                             CacheManager.clear(CacheManager.zipDir(this));
                             CacheManager.clear(CacheManager.pagesDir(this));
                             rebuild();
                         }));
-        clickRow("Clear resume cache", "Hapus semua data posisi baca", v ->
-                confirm("Clear resume cache", "Hapus semua data posisi baca?", () -> {
+        clickRow(t("clear_resume"), t("clear_resume_desc"), v ->
+                confirm(t("clear_resume"), t("clear_resume_q"), () -> {
                     db.clearResume();
                     rebuild();
                 }));
-        clickRow("Clear bookmarks", "Hapus semua bookmark", v ->
-                confirm("Clear bookmarks", "Hapus semua bookmark?", () -> {
+        clickRow(t("clear_bookmarks"), t("clear_bookmarks_desc"), v ->
+                confirm(t("clear_bookmarks"), t("clear_bookmarks_q"), () -> {
                     db.clearBookmarks();
                     rebuild();
                 }));
-        clickRow("Clear history", "Hapus semua riwayat", v ->
-                confirm("Clear history", "Hapus semua riwayat?", () -> {
+        clickRow(t("clear_history"), t("clear_history_desc"), v ->
+                confirm(t("clear_history"), t("clear_history_q"), () -> {
                     db.clearHistory();
                     rebuild();
                 }));
-        clickRow("Clear all cache", "Hapus semua data cache", v ->
-                confirm("Clear all cache", "Hapus semua data cache?", () -> {
+        clickRow(t("clear_all"), t("clear_all_desc"), v ->
+                confirm(t("clear_all"), t("clear_all_q"), () -> {
                     CacheManager.clear(CacheManager.thumbsDir(this));
                     CacheManager.clear(CacheManager.pagesDir(this));
                     CacheManager.clear(CacheManager.zipDir(this));
@@ -139,18 +193,30 @@ public class SettingsActivity extends Activity {
                     rebuild();
                 }));
 
-        section("INFORMATION");
-        infoRow("Version", "1.0");
-        clickRow("About", "Tentang aplikasi", v ->
+        section(t("information"));
+        infoRow(t("version"), "1.0");
+        clickRow(t("about"), t("about_desc"), v ->
                 showDialog(new AlertDialog.Builder(this)
                         .setTitle("Manga Reader")
-                        .setMessage("Comic / manga reader offline.\nDukung format CBZ, ZIP, JPG, PNG, WEBP, GIF, BMP.\nDark & light theme, RTL/LTR, dual page, zoom, bookmark, history, resume.")
-                        .setPositiveButton("OK", null)));
-        clickRow("Licenses", "Lisensi open source", v ->
+                        .setMessage(t("about_msg"))
+                        .setPositiveButton(t("ok"), null)));
+        clickRow(t("licenses"), t("licenses_desc"), v ->
                 showDialog(new AlertDialog.Builder(this)
-                        .setTitle("Licenses")
-                        .setMessage("Aplikasi dibangun di atas Android SDK, Jetpack (AndroidX).\nSemua aset visual original.")
-                        .setPositiveButton("OK", null)));
+                        .setTitle(t("licenses"))
+                        .setMessage(t("licenses_msg"))
+                        .setPositiveButton(t("ok"), null)));
+    }
+
+    private String retentionLabel(int days) {
+        return days == 1 ? t("retention_1day")
+                : String.format(java.util.Locale.ROOT, t("retention_days"), days);
+    }
+
+    private int indexOf(int[] arr, int value) {
+        for (int i = 0; i < arr.length; i++) {
+            if (arr[i] == value) return i;
+        }
+        return 0;
     }
 
     private void section(String text) {
@@ -270,8 +336,8 @@ public class SettingsActivity extends Activity {
         showDialog(new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
-                .setPositiveButton("Hapus", (d, w) -> action.run())
-                .setNegativeButton("Batal", null));
+                .setPositiveButton(t("delete"), (d, w) -> action.run())
+                .setNegativeButton(t("cancel"), null));
     }
 
     private void showDialog(AlertDialog.Builder builder) {

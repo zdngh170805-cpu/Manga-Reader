@@ -25,6 +25,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -43,6 +44,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -91,6 +93,7 @@ public class ReaderActivity extends Activity {
                 if (!updatingSlider) {
                     slider.setProgress(pos);
                 }
+                updateNavSlider(pos);
                 updatePageText();
                 updateBookmarkButton();
                 saveProgress(pos);
@@ -112,6 +115,8 @@ public class ReaderActivity extends Activity {
     private TextView chapterBtn;
     private final List<Chapter> chapters = new ArrayList<>();
     private FrameLayout drawerWrap;
+    private LinearLayout navRail;
+    private SeekBar navSlider;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -153,6 +158,7 @@ public class ReaderActivity extends Activity {
                 if (!updatingSlider) {
                     slider.setProgress(start);
                 }
+                updateNavSlider(start);
                 updatePageText();
                 updateBookmarkButton();
                 saveProgress(start);
@@ -166,6 +172,12 @@ public class ReaderActivity extends Activity {
         root.addView(topBar, new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP));
         root.addView(toolBarScroll, new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.TOP));
         root.addView(bottomBar, new FrameLayout.LayoutParams(MATCH, WRAP, Gravity.BOTTOM));
+
+        buildNavRail();
+        root.addView(navRail, new FrameLayout.LayoutParams(WRAP,
+                Math.round(getResources().getDisplayMetrics().heightPixels * 0.52f),
+                Gravity.RIGHT | Gravity.CENTER_VERTICAL));
+        applyNavPosition();
 
         loading = buildLoading();
         root.addView(loading, new FrameLayout.LayoutParams(MATCH, MATCH));
@@ -221,9 +233,7 @@ public class ReaderActivity extends Activity {
         toolBar.setOrientation(LinearLayout.HORIZONTAL);
         toolBar.setPadding(dp(8), 0, dp(8), 0);
 
-        toolBar.addView(tool("Arah", v -> showDirectionDialog()));
-        toolBar.addView(tool("Layout", v -> showLayoutDialog()));
-        toolBar.addView(tool("Geser", v -> showScrollDialog()));
+        toolBar.addView(tool("Tata Letak", v -> showLayoutScrollingDialog()));
         toolBar.addView(tool("Ukuran", v -> showSizeDialog()));
         toolBar.addView(tool("Putar", v -> showRotateDialog()));
         toolBar.addView(tool("Jarak", v -> showSpacingDialog()));
@@ -317,6 +327,69 @@ public class ReaderActivity extends Activity {
         row.addView(next, new LinearLayout.LayoutParams(WRAP, WRAP));
         bar.addView(row, new LinearLayout.LayoutParams(MATCH, WRAP));
         return bar;
+    }
+
+    private void buildNavRail() {
+        navRail = new LinearLayout(this);
+        navRail.setOrientation(LinearLayout.VERTICAL);
+        navRail.setGravity(Gravity.CENTER);
+        navRail.setPadding(dp(3), dp(6), dp(3), dp(6));
+        navRail.setBackground(Ui.rounded(0x99000000, 0, 14, this));
+        navRail.setVisibility(View.GONE);
+
+        TextView top = tool("⏶", v -> setCurrentPage(0));
+        top.setTextSize(15);
+        top.setMinWidth(dp(32));
+        top.setMinHeight(dp(32));
+        navRail.addView(top, new LinearLayout.LayoutParams(dp(34), dp(34)));
+
+        navSlider = new SeekBar(this);
+        navSlider.setProgressTintList(ColorStateList.valueOf(0xFF7C8CFF));
+        navSlider.setProgressBackgroundTintList(ColorStateList.valueOf(0xFF3A3F4A));
+        navSlider.setThumbTintList(ColorStateList.valueOf(0xFF7C8CFF));
+        navSlider.setThumbOffset(dp(8));
+        navSlider.setPadding(0, dp(6), 0, dp(6));
+        navSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (!fromUser || pages.isEmpty()) return;
+                updatingSlider = true;
+                setCurrentPage(progress);
+                updatingSlider = false;
+                updatePageText();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+        navRail.addView(navSlider, new LinearLayout.LayoutParams(dp(32), 0, 1));
+
+        TextView bottom = tool("⏷", v -> setCurrentPage(pages.isEmpty() ? 0 : pages.size() - 1));
+        bottom.setTextSize(15);
+        bottom.setMinWidth(dp(32));
+        bottom.setMinHeight(dp(32));
+        navRail.addView(bottom, new LinearLayout.LayoutParams(dp(34), dp(34)));
+    }
+
+    private void applyNavPosition() {
+        if (navRail == null) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) navRail.getLayoutParams();
+        lp.gravity = prefs.leftScrollbar()
+                ? (Gravity.LEFT | Gravity.CENTER_VERTICAL)
+                : (Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        navRail.setLayoutParams(lp);
+    }
+
+    private void updateNavSlider(int pos) {
+        if (navSlider == null) return;
+        if (!updatingSlider) {
+            navSlider.setProgress(pos);
+        }
     }
 
     private View buildLoading() {
@@ -413,10 +486,25 @@ public class ReaderActivity extends Activity {
             return;
         }
         pages = ps.files;
+        if (prefs.encoding() == 2) {
+            for (int i = 0; i < ps.labels.size(); i++) {
+                String l = ps.labels.get(i);
+                if (l != null) {
+                    ps.labels.set(i, new String(l.getBytes(StandardCharsets.ISO_8859_1),
+                            StandardCharsets.UTF_8));
+                }
+            }
+        }
         buildChapters(ps.labels);
         root.removeView(loading);
         slider.setMax(pages.size() - 1);
+        if (navSlider != null) {
+            navSlider.setMax(pages.size() - 1);
+        }
         setupPager(restoreStart(), false);
+        if (navRail != null && uiVisible) {
+            navRail.setVisibility(View.VISIBLE);
+        }
 
         int start = currentStartPage();
         File thumb = Thumbs.ensure(this, pages.get(start), uri + "_" + start);
@@ -505,7 +593,7 @@ public class ReaderActivity extends Activity {
     private void applySpacing() {
         if (pageHost == null) return;
         int gap = spacingPx();
-        boolean showDiv = prefs.scrollDivider() && prefs.scroll() == 1;
+        boolean showDiv = prefs.scrollDivider() && prefs.scroll() == 1 && prefs.spacing() > 0;
         if (pager != null) {
             pager.setClipToPadding(!showDiv);
             pager.setBackgroundColor(showDiv ? 0xFF4A5462 : Color.BLACK);
@@ -521,7 +609,8 @@ public class ReaderActivity extends Activity {
     }
 
     private int spacingPx() {
-        float p = Math.max(0, prefs.spacing());
+        if (prefs.spacing() <= 0) return 0;
+        float p = prefs.spacing();
         if (pageHost == null || pageHost.getWidth() == 0) return 0;
         if (prefs.scroll() == 1) {
             return (int) (pageHost.getHeight() * p / 100f);
@@ -695,12 +784,13 @@ public class ReaderActivity extends Activity {
         @Override
         public void getItemOffsets(Rect outRect, View view, RecyclerView parent,
                                    RecyclerView.State state) {
-            outRect.set(0, 0, 0, spacingPx() + (prefs.scrollDivider() ? dp(1) : 0));
+            int extra = (prefs.scrollDivider() && prefs.spacing() > 0) ? dp(1) : 0;
+            outRect.set(0, 0, 0, spacingPx() + extra);
         }
 
         @Override
         public void onDraw(Canvas c, RecyclerView parent, RecyclerView.State state) {
-            if (!prefs.scrollDivider()) return;
+            if (!prefs.scrollDivider() || prefs.spacing() <= 0) return;
             paint.setColor(0xFF4A5462);
             paint.setStrokeWidth(dp(1));
             int gap = spacingPx();
@@ -800,28 +890,122 @@ public class ReaderActivity extends Activity {
         cropBtn.setTextColor(prefs.cutMargin() ? 0xFF7C8CFF : Color.WHITE);
     }
 
-    private void showDirectionDialog() {
-        String[] opts = {"Kiri ke Kanan (LTR)", "Kanan ke Kiri (RTL)"};
-        showChoice("Arah Baca", opts, prefs.rtl() ? 1 : 0, which -> {
-            prefs.setRtl(which == 1);
-            applyModeChange();
-        });
+    private int directionIndex() {
+        int s = prefs.scroll();
+        return (prefs.rtl() ? 1 : 0) + (s == 1 ? 2 : (s == 2 ? 4 : 0));
     }
 
-    private void showLayoutDialog() {
-        String[] opts = {"Auto", "Satu halaman", "Dua halaman"};
-        showChoice("Page Layout", opts, prefs.pageLayout(), which -> {
-            prefs.setPageLayout(which);
-            applyModeChange();
-        });
+    private int layoutOptionIndex() {
+        int m = prefs.pageLayout();
+        return m == 0 ? 3 : (m == 2 ? 2 : 1);
     }
 
-    private void showScrollDialog() {
-        String[] opts = {"Horizontal", "Vertikal", "Kontinu (gulir bebas)"};
-        showChoice("Page Scrolling", opts, prefs.scroll(), which -> {
-            prefs.setScroll(which);
-            applyModeChange();
-        });
+    private void showLayoutScrollingDialog() {
+        String[] dirOpts = {"→  Kanan", "←  Kiri", "↓  Kanan+Vertikal",
+                "↓  Kiri+Vertikal", "S  Kanan", "S  Kiri"};
+        final int[] dir = {directionIndex()};
+        final int[] lay = {layoutOptionIndex()};
+        final List<TextView> dirCells = new ArrayList<>();
+        final List<TextView> layCells = new ArrayList<>();
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(16);
+        layout.setPadding(pad, pad, pad, 0);
+
+        TextView dirLabel = new TextView(this);
+        dirLabel.setText("Arah Baca");
+        dirLabel.setTextColor(Color.WHITE);
+        dirLabel.setTextSize(14);
+        dirLabel.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        layout.addView(dirLabel);
+
+        int cols = isLandscape() ? 6 : 3;
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(cols);
+        for (int i = 0; i < dirOpts.length; i++) {
+            TextView cell = new TextView(this);
+            cell.setText(dirOpts[i]);
+            cell.setTextSize(13);
+            cell.setGravity(Gravity.CENTER);
+            cell.setSingleLine(true);
+            boolean sel = i == dir[0];
+            cell.setBackground(Ui.rounded(sel ? Ui.ACCENT : 0xFF232731, Ui.divider(this), 10, this));
+            cell.setTextColor(sel ? 0xFF0B0E14 : Color.WHITE);
+            final int idx = i;
+            cell.setOnClickListener(v -> {
+                dir[0] = idx;
+                for (int k = 0; k < dirCells.size(); k++) {
+                    boolean s = k == idx;
+                    dirCells.get(k).setBackground(Ui.rounded(s ? Ui.ACCENT : 0xFF232731,
+                            Ui.divider(this), 10, this));
+                    dirCells.get(k).setTextColor(s ? 0xFF0B0E14 : Color.WHITE);
+                }
+            });
+            dirCells.add(cell);
+            GridLayout.LayoutParams gp = new GridLayout.LayoutParams();
+            gp.width = 0;
+            gp.height = dp(42);
+            gp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
+            gp.setMargins(0, dp(6), dp(4), 0);
+            grid.addView(cell, gp);
+        }
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(MATCH, WRAP);
+        glp.topMargin = dp(6);
+        layout.addView(grid, glp);
+
+        TextView layLabel = new TextView(this);
+        layLabel.setText("Layout Halaman");
+        layLabel.setTextColor(Color.WHITE);
+        layLabel.setTextSize(14);
+        layLabel.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(MATCH, WRAP);
+        llp.topMargin = dp(14);
+        layout.addView(layLabel, llp);
+
+        String[] layOpts = {"Off", "Single", "Dual", "Auto"};
+        LinearLayout layRow = new LinearLayout(this);
+        layRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < layOpts.length; i++) {
+            TextView cell = new TextView(this);
+            cell.setText(layOpts[i]);
+            cell.setTextSize(13);
+            cell.setGravity(Gravity.CENTER);
+            cell.setSingleLine(true);
+            boolean sel = i == lay[0];
+            cell.setBackground(Ui.rounded(sel ? Ui.ACCENT : 0xFF232731, Ui.divider(this), 10, this));
+            cell.setTextColor(sel ? 0xFF0B0E14 : Color.WHITE);
+            final int idx = i;
+            cell.setOnClickListener(v -> {
+                lay[0] = idx;
+                for (int k = 0; k < layCells.size(); k++) {
+                    boolean s = k == idx;
+                    layCells.get(k).setBackground(Ui.rounded(s ? Ui.ACCENT : 0xFF232731,
+                            Ui.divider(this), 10, this));
+                    layCells.get(k).setTextColor(s ? 0xFF0B0E14 : Color.WHITE);
+                }
+            });
+            layCells.add(cell);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, dp(40), 1);
+            if (i > 0) {
+                clp.leftMargin = dp(4);
+            }
+            layRow.addView(cell, clp);
+        }
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(MATCH, WRAP);
+        rlp.topMargin = dp(6);
+        layout.addView(layRow, rlp);
+
+        showDialog(new AlertDialog.Builder(this)
+                .setTitle("Tata Letak & Scrolling")
+                .setView(layout)
+                .setPositiveButton("OK", (d, w) -> {
+                    prefs.setRtl((dir[0] % 2) == 1);
+                    prefs.setScroll(dir[0] >= 4 ? 2 : (dir[0] >= 2 ? 1 : 0));
+                    prefs.setPageLayout(lay[0] == 2 ? 2 : (lay[0] == 3 ? 0 : 1));
+                    applyModeChange();
+                })
+                .setNegativeButton("Batal", null));
     }
 
     private void showSizeDialog() {
@@ -853,8 +1037,8 @@ public class ReaderActivity extends Activity {
         layout.addView(label, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         SeekBar bar = new SeekBar(this);
-        bar.setMax(100);
-        bar.setProgress(prefs.spacing() + 50);
+        bar.setMax(200);
+        bar.setProgress(prefs.spacing() + 100);
         bar.setProgressTintList(ColorStateList.valueOf(0xFF7C8CFF));
         bar.setThumbTintList(ColorStateList.valueOf(0xFF7C8CFF));
         layout.addView(bar, new LinearLayout.LayoutParams(MATCH, WRAP));
@@ -863,7 +1047,7 @@ public class ReaderActivity extends Activity {
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                label.setText((progress - 50) + "%");
+                label.setText((progress - 100) + "%");
             }
 
             @Override
@@ -879,7 +1063,7 @@ public class ReaderActivity extends Activity {
                 .setTitle("Page Spacing")
                 .setView(layout)
                 .setPositiveButton("OK", (d, w) -> {
-                    prefs.setSpacing(bar.getProgress() - 50);
+                    prefs.setSpacing(bar.getProgress() - 100);
                     applySpacing();
                     if (adapter != null) adapter.notifyDataSetChanged();
                 })
@@ -1039,6 +1223,9 @@ public class ReaderActivity extends Activity {
         topBar.setVisibility(v);
         toolBarScroll.setVisibility(v);
         bottomBar.setVisibility(v);
+        if (navRail != null) {
+            navRail.setVisibility(pages.isEmpty() ? View.GONE : v);
+        }
         if (uiVisible) {
             showSystemUi();
         } else {
@@ -1051,6 +1238,9 @@ public class ReaderActivity extends Activity {
         topBar.setVisibility(View.VISIBLE);
         toolBarScroll.setVisibility(View.VISIBLE);
         bottomBar.setVisibility(View.VISIBLE);
+        if (navRail != null) {
+            navRail.setVisibility(pages.isEmpty() ? View.GONE : View.VISIBLE);
+        }
         showSystemUi();
     }
 

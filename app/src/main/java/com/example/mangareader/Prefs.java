@@ -48,7 +48,7 @@ public final class Prefs {
     public int scroll() { return sp.getInt("scroll", 0); }
     public void setScroll(int v) { edit().putInt("scroll", v).apply(); }
 
-    // percent, -50..50
+    // percent, -100..100 (negative = pages touch, no gap)
     public int spacing() { return sp.getInt("spacing", 0); }
     public void setSpacing(int v) { edit().putInt("spacing", v).apply(); }
 
@@ -92,6 +92,25 @@ public final class Prefs {
 
     public boolean askedAllFiles() { return sp.getBoolean("asked_all_files", false); }
     public void setAskedAllFiles(boolean v) { edit().putBoolean("asked_all_files", v).apply(); }
+
+    // 0 system, 1 English, 2 Indonesian
+    public int language() { return sp.getInt("language", 0); }
+    public void setLanguage(int v) { edit().putInt("language", v).apply(); }
+
+    // 0 system, 1 UTF-8, 2 ISO-8859-1
+    public int encoding() { return sp.getInt("encoding", 0); }
+    public void setEncoding(int v) { edit().putInt("encoding", v).apply(); }
+
+    public boolean leftScrollbar() { return sp.getBoolean("left_scrollbar", false); }
+    public void setLeftScrollbar(boolean v) { edit().putBoolean("left_scrollbar", v).apply(); }
+
+    // MB, 0 = unlimited
+    public int thumbLimitMb() { return sp.getInt("thumb_limit", 0); }
+    public void setThumbLimitMb(int v) { edit().putInt("thumb_limit", v).apply(); }
+
+    // days
+    public int zipRetentionDays() { return sp.getInt("zip_retention", 3); }
+    public void setZipRetentionDays(int v) { edit().putInt("zip_retention", v).apply(); }
 
     public boolean showStatusbar() { return sp.getBoolean("show_statusbar", false); }
     public void setShowStatusbar(boolean v) { edit().putBoolean("show_statusbar", v).apply(); }

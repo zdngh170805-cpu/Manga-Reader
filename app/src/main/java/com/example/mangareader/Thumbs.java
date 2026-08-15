@@ -23,6 +23,7 @@ public final class Thumbs {
         } catch (Exception ignored) {
         }
         b.recycle();
+        CacheManager.trimThumbs(c);
         return out.exists() ? out : null;
     }
 
