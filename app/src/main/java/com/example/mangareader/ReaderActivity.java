@@ -342,10 +342,15 @@ public class ReaderActivity extends Activity {
     private void loadAsync() {
         new Thread(() -> {
             try {
-                File cbz = new File(CacheManager.zipDir(this), "manga.cbz");
-                copyUri(Uri.parse(uri), cbz);
-                PageSet ps = extractPages(cbz, CacheManager.pagesDir(this));
-                runOnUiThread(() -> onLoaded(ps));
+                Uri u = Uri.parse(uri);
+                if ("file".equalsIgnoreCase(u.getScheme())) {
+                    loadDirect(new File(u.getPath()));
+                } else {
+                    File cbz = new File(CacheManager.zipDir(this), "manga.cbz");
+                    copyUri(u, cbz);
+                    PageSet ps = extractPages(cbz, CacheManager.pagesDir(this));
+                    runOnUiThread(() -> onLoaded(ps));
+                }
             } catch (Exception ex) {
                 runOnUiThread(() -> {
                     Toast.makeText(this, "Gagal membuka file.", Toast.LENGTH_LONG).show();
@@ -353,6 +358,52 @@ public class ReaderActivity extends Activity {
                 });
             }
         }).start();
+    }
+
+    private void loadDirect(File src) {
+        try {
+            if (src.isDirectory()) {
+                PageSet ps = new PageSet();
+                ps.files.addAll(listImages(src));
+                runOnUiThread(() -> onLoaded(ps));
+            } else if (isArchiveName(src.getName())) {
+                PageSet ps = extractPages(src, CacheManager.pagesDir(this));
+                runOnUiThread(() -> onLoaded(ps));
+            } else if (hasImageExt(src.getName())) {
+                PageSet ps = new PageSet();
+                ps.files.add(src);
+                runOnUiThread(() -> onLoaded(ps));
+            } else {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Format tidak didukung.", Toast.LENGTH_LONG).show();
+                    finish();
+                });
+            }
+        } catch (Exception ex) {
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Gagal membuka file.", Toast.LENGTH_LONG).show();
+                finish();
+            });
+        }
+    }
+
+    private static List<File> listImages(File dir) {
+        List<File> out = new ArrayList<>();
+        File[] all = dir.listFiles();
+        if (all != null) {
+            for (File f : all) {
+                if (f.isFile() && hasImageExt(f.getName())) {
+                    out.add(f);
+                }
+            }
+        }
+        Collections.sort(out, (a, b) -> naturalCompare(a.getName(), b.getName()));
+        return out;
+    }
+
+    private static boolean isArchiveName(String name) {
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".cbz") || lower.endsWith(".zip");
     }
 
     private void onLoaded(PageSet ps) {
@@ -824,7 +875,7 @@ public class ReaderActivity extends Activity {
             }
         });
 
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle("Page Spacing")
                 .setView(layout)
                 .setPositiveButton("OK", (d, w) -> {
@@ -832,8 +883,7 @@ public class ReaderActivity extends Activity {
                     applySpacing();
                     if (adapter != null) adapter.notifyDataSetChanged();
                 })
-                .setNegativeButton("Batal", null)
-                .show();
+                .setNegativeButton("Batal", null));
     }
 
     private void showAdjustDialog() {
@@ -866,7 +916,7 @@ public class ReaderActivity extends Activity {
         invSw.setOnCheckedChangeListener((b, c) -> inv[0] = c);
         layout.addView(invSw, topLp(dp(8)));
 
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle("Image Adjustment")
                 .setView(layout)
                 .setPositiveButton("OK", (d, w) -> {
@@ -877,8 +927,7 @@ public class ReaderActivity extends Activity {
                     prefs.setAdjust(1f, 1f, false, false);
                     applyFilterToViews();
                 })
-                .setNegativeButton("Batal", null)
-                .show();
+                .setNegativeButton("Batal", null));
     }
 
     private View adjustRow(String title, int initial, int min, int max, ViewGroup parent,
@@ -943,15 +992,24 @@ public class ReaderActivity extends Activity {
     }
 
     private void showChoice(String title, String[] options, int checked, Consumer<Integer> onSelect) {
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setSingleChoiceItems(options, checked,
                         (d, which) -> {
                             onSelect.accept(which);
                             d.dismiss();
                         })
-                .setNegativeButton("Batal", null)
-                .show();
+                .setNegativeButton("Batal", null));
+    }
+
+    private void showDialog(AlertDialog.Builder builder) {
+        AlertDialog d = builder.create();
+        d.show();
+        if (d.getWindow() != null) {
+            d.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.92f),
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     // ---------- UI visibility ----------
@@ -1045,7 +1103,7 @@ public class ReaderActivity extends Activity {
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 break;
             default:
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
         }
     }
 

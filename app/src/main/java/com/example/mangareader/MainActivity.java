@@ -1,14 +1,20 @@
 package com.example.mangareader;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -19,6 +25,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.documentfile.provider.DocumentFile;
 
@@ -36,6 +43,7 @@ public class MainActivity extends Activity {
 
     private static final int REQ_OPEN_DOC = 1;
     private static final int REQ_TREE = 2;
+    private static final int REQ_PERM_READ = 100;
 
     private Prefs prefs;
     private ComicDb db;
@@ -49,12 +57,15 @@ public class MainActivity extends Activity {
     private int currentTab = 0; // 0 storage, 1 history, 2 bookmark
     private DocumentFile currentDir;
     private final ArrayList<DocumentFile> dirStack = new ArrayList<>();
+    private File fileDir;
+    private final ArrayList<File> fileStack = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = Prefs.get(this);
         db = ComicDb.get(this);
+        maybeRequestStorage();
     }
 
     @Override
@@ -223,6 +234,10 @@ public class MainActivity extends Activity {
             renderBrowser(list);
             return;
         }
+        if (fileDir != null) {
+            renderFileBrowser(list);
+            return;
+        }
         renderStorageRoot(list);
     }
 
@@ -258,6 +273,17 @@ public class MainActivity extends Activity {
             row(list, "Ganti folder", "Pilih lokasi lain", null,
                     v -> launchTree());
         }
+
+        section(list, "PENYIMPANAN LANGSUNG");
+        row(list, "Device", "/storage/emulated/0", Ui.ACCENT, v -> {
+            if (hasAllFilesAccess()) {
+                fileDir = new File("/storage/emulated/0");
+                fileStack.clear();
+                renderAll();
+            } else {
+                openAllFilesSettings();
+            }
+        });
 
         section(list, "TERAKHIR DIBUKA");
         List<Prefs.Recent> recents = prefs.recent();
@@ -350,10 +376,206 @@ public class MainActivity extends Activity {
         renderAll();
     }
 
+    // ---------------- Direct file browser (Device) ----------------
+
+    private void renderFileBrowser(LinearLayout list) {
+        LinearLayout pathBar = new LinearLayout(this);
+        pathBar.setOrientation(LinearLayout.VERTICAL);
+        pathBar.setPadding(0, dp(4), 0, dp(12));
+
+        TextView crumb = new TextView(this);
+        crumb.setText(fileBreadcrumb());
+        crumb.setTextSize(13);
+        crumb.setTextColor(Ui.text2(this));
+        crumb.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        crumb.setMaxLines(2);
+        crumb.setEllipsize(TextUtils.TruncateAt.START);
+        pathBar.addView(crumb);
+        list.addView(pathBar);
+
+        row(list, "..  (Kembali)", "Folder di atas", null, v -> upFileDir());
+
+        File[] children = fileDir.listFiles();
+        List<File> folders = new ArrayList<>();
+        List<File> comics = new ArrayList<>();
+        if (children != null) {
+            for (File f : children) {
+                if (f.isDirectory()) {
+                    folders.add(f);
+                } else if (isComic(f.getName())) {
+                    comics.add(f);
+                }
+            }
+        }
+        Comparator<File> byName = (a, b) -> {
+            String x = a.getName() != null ? a.getName() : "";
+            String y = b.getName() != null ? b.getName() : "";
+            return x.compareToIgnoreCase(y);
+        };
+        Collections.sort(folders, byName);
+        Collections.sort(comics, byName);
+
+        if (folders.isEmpty() && comics.isEmpty()) {
+            hint(list, "Folder kosong.");
+        }
+        for (File f : folders) {
+            row(list, "🗀  " + f.getName(), "Folder", null, v -> enterFileDir(f));
+        }
+        if (!comics.isEmpty()) {
+            fileGridOfComics(list, comics);
+        }
+    }
+
+    private String fileBreadcrumb() {
+        StringBuilder sb = new StringBuilder();
+        String base = "/storage/emulated/0";
+        if (!prefs.showFolderPath()) {
+            return fileStack.isEmpty() ? base : fileStack.get(fileStack.size() - 1).getName();
+        }
+        sb.append(base);
+        for (File d : fileStack) {
+            sb.append(" / ").append(d.getName());
+        }
+        return sb.toString();
+    }
+
+    private void enterFileDir(File dir) {
+        fileStack.add(dir);
+        fileDir = dir;
+        renderAll();
+    }
+
+    private void upFileDir() {
+        if (fileStack.isEmpty()) {
+            fileDir = null;
+        } else {
+            fileStack.remove(fileStack.size() - 1);
+            fileDir = fileStack.isEmpty() ? null : fileStack.get(fileStack.size() - 1);
+        }
+        renderAll();
+    }
+
+    private void fileGridOfComics(LinearLayout list, List<File> comics) {
+        int cell = dp(82);
+        int cols = Math.max(2, Math.min(4, getResources().getDisplayMetrics().widthPixels
+                / (int) (cell * 1.2f)));
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(cols);
+        grid.setUseDefaultMargins(true);
+
+        int i = 0;
+        for (File f : comics) {
+            final File file = f;
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setGravity(Gravity.CENTER_HORIZONTAL);
+            card.setBackground(Ui.rounded(Ui.surface(this), Ui.divider(this), 12, this));
+            int pad = dp(6);
+            card.setPadding(pad, pad, pad, dp(8));
+            card.setOnClickListener(v -> openFileReader(file));
+
+            boolean withThumb = i < 60 && isImage(file.getName());
+            Bitmap b = withThumb ? loadFileThumb(file) : null;
+            if (b != null) {
+                ImageView img = new ImageView(this);
+                img.setImageBitmap(b);
+                img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                card.addView(img, new LinearLayout.LayoutParams(dp(64), dp(88)));
+            } else {
+                card.addView(coverPlaceholder(withThumb ? "🖼" : "📕"));
+            }
+
+            TextView name = new TextView(this);
+            name.setText(file.getName() != null ? file.getName() : "");
+            name.setTextSize(11);
+            name.setTextColor(Ui.text(this));
+            name.setMaxLines(2);
+            name.setGravity(Gravity.CENTER_HORIZONTAL);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            card.addView(name, topLp(dp(6)));
+
+            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+            lp.width = 0;
+            lp.height = GridLayout.LayoutParams.WRAP_CONTENT;
+            lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
+            int m = dp(5);
+            lp.setMargins(m, m, m, m);
+            grid.addView(card, lp);
+            i++;
+        }
+        list.addView(grid, fullLp(dp(10)));
+    }
+
+    private Bitmap loadFileThumb(File f) {
+        try {
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(f.getPath(), o);
+            if (o.outWidth <= 0 || o.outHeight <= 0) return null;
+            int sample = 1;
+            while (o.outWidth / sample > 240 || o.outHeight / sample > 240) {
+                sample *= 2;
+            }
+            o.inJustDecodeBounds = false;
+            o.inSampleSize = sample;
+            return BitmapFactory.decodeFile(f.getPath(), o);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void openFileReader(File f) {
+        openReader(Uri.fromFile(f).toString(), f.getName(), -1);
+    }
+
+    // ---------------- permissions ----------------
+
+    private void maybeRequestStorage() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            if (!Environment.isExternalStorageManager() && !prefs.askedAllFiles()) {
+                prefs.setAskedAllFiles(true);
+                new AlertDialog.Builder(this)
+                        .setTitle("Akses semua file")
+                        .setMessage("Berikan izin \"Akses semua file\" agar Manga Reader bisa membuka folder "
+                                + "lokal (/storage/emulated/0) secara langsung dan lebih cepat.")
+                        .setPositiveButton("Izinkan", (d, w) -> openAllFilesSettings())
+                        .setNegativeButton("Nanti", null)
+                        .show();
+            }
+        } else {
+            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                        REQ_PERM_READ);
+            }
+        }
+    }
+
+    private boolean hasAllFilesAccess() {
+        return Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
+    }
+
+    private void openAllFilesSettings() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception e) {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            }
+        }
+    }
+
     // ---------------- History ----------------
 
     private void renderHistory() {
-        List<ComicDb.HistoryRow> rows = db.history();
+        List<ComicDb.HistoryRow> rows;
+        try {
+            rows = db.history();
+        } catch (Exception e) {
+            rows = new ArrayList<>();
+            Toast.makeText(this, "Gagal membaca riwayat.", Toast.LENGTH_SHORT).show();
+        }
         LinearLayout list = listScroll();
         section(list, "RIWAYAT");
         if (rows.isEmpty()) {
@@ -380,7 +602,13 @@ public class MainActivity extends Activity {
     // ---------------- Bookmarks ----------------
 
     private void renderBookmarks() {
-        List<ComicDb.BookmarkRow> rows = db.bookmarks();
+        List<ComicDb.BookmarkRow> rows;
+        try {
+            rows = db.bookmarks();
+        } catch (Exception e) {
+            rows = new ArrayList<>();
+            Toast.makeText(this, "Gagal membaca bookmark.", Toast.LENGTH_SHORT).show();
+        }
         LinearLayout list = listScroll();
         section(list, "BOOKMARK");
         if (rows.isEmpty()) {

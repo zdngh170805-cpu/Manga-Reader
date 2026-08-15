@@ -2,10 +2,16 @@ package com.example.mangareader;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -42,15 +48,14 @@ public class SettingsActivity extends Activity {
         String[] themes = {"System", "Dark", "Light"};
         String[] names = {"System", "Dark", "Light"};
         clickRow("Tema", "Saat ini: " + themes[prefs.theme()], v -> {
-            new AlertDialog.Builder(this)
+            showDialog(new AlertDialog.Builder(this)
                     .setTitle("Tema")
                     .setSingleChoiceItems(names, prefs.theme(), (d, which) -> {
                         prefs.setTheme(which);
                         d.dismiss();
                         recreate();
                     })
-                    .setNegativeButton("Batal", null)
-                    .show();
+                    .setNegativeButton("Batal", null));
         });
         clickRow("Reset Settings", "Kembalikan semua pengaturan ke default", v -> {
             confirm("Reset Settings", "Semua pengaturan akan dikembalikan ke default.",
@@ -59,6 +64,8 @@ public class SettingsActivity extends Activity {
                         recreate();
                     });
         });
+        clickRow("Akses semua file", hasAllFilesAccess()
+                ? "Izin aktif" : "Aktifkan akses folder lokal langsung", v -> openAllFilesSettings());
 
         section("LIST VIEW");
         switchRow("Quick view floating button", "Buka file terakhir dengan tombol melayang",
@@ -135,17 +142,15 @@ public class SettingsActivity extends Activity {
         section("INFORMATION");
         infoRow("Version", "1.0");
         clickRow("About", "Tentang aplikasi", v ->
-                new AlertDialog.Builder(this)
+                showDialog(new AlertDialog.Builder(this)
                         .setTitle("Manga Reader")
                         .setMessage("Comic / manga reader offline.\nDukung format CBZ, ZIP, JPG, PNG, WEBP, GIF, BMP.\nDark & light theme, RTL/LTR, dual page, zoom, bookmark, history, resume.")
-                        .setPositiveButton("OK", null)
-                        .show());
+                        .setPositiveButton("OK", null)));
         clickRow("Licenses", "Lisensi open source", v ->
-                new AlertDialog.Builder(this)
+                showDialog(new AlertDialog.Builder(this)
                         .setTitle("Licenses")
                         .setMessage("Aplikasi dibangun di atas Android SDK, Jetpack (AndroidX).\nSemua aset visual original.")
-                        .setPositiveButton("OK", null)
-                        .show());
+                        .setPositiveButton("OK", null)));
     }
 
     private void section(String text) {
@@ -262,12 +267,36 @@ public class SettingsActivity extends Activity {
     }
 
     private void confirm(String title, String message, Runnable action) {
-        new AlertDialog.Builder(this)
+        showDialog(new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("Hapus", (d, w) -> action.run())
-                .setNegativeButton("Batal", null)
-                .show();
+                .setNegativeButton("Batal", null));
+    }
+
+    private void showDialog(AlertDialog.Builder builder) {
+        AlertDialog d = builder.create();
+        d.show();
+        if (d.getWindow() != null) {
+            d.getWindow().setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.92f),
+                    ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    private boolean hasAllFilesAccess() {
+        return Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager();
+    }
+
+    private void openAllFilesSettings() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            } catch (Exception e) {
+                startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));
+            }
+        }
     }
 
     private void toast(String msg) {

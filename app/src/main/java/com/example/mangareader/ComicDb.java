@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ComicDb {
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static ComicDb instance;
 
     private final SQLiteOpenHelper helper;
@@ -38,6 +38,10 @@ public final class ComicDb {
 
             @Override
             public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+                db.execSQL("DROP TABLE IF EXISTS history");
+                db.execSQL("DROP TABLE IF EXISTS bookmarks");
+                db.execSQL("DROP TABLE IF EXISTS resume");
+                onCreate(db);
             }
         };
     }

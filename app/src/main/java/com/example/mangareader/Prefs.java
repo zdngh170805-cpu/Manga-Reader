@@ -90,6 +90,9 @@ public final class Prefs {
     public boolean fab() { return sp.getBoolean("fab", true); }
     public void setFab(boolean v) { edit().putBoolean("fab", v).apply(); }
 
+    public boolean askedAllFiles() { return sp.getBoolean("asked_all_files", false); }
+    public void setAskedAllFiles(boolean v) { edit().putBoolean("asked_all_files", v).apply(); }
+
     public boolean showStatusbar() { return sp.getBoolean("show_statusbar", false); }
     public void setShowStatusbar(boolean v) { edit().putBoolean("show_statusbar", v).apply(); }
 
