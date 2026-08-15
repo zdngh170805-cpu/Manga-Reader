@@ -80,6 +80,9 @@ public final class Prefs {
                 .apply();
     }
 
+    public boolean cutMargin() { return sp.getBoolean("cut_margin", false); }
+    public void setCutMargin(boolean v) { edit().putBoolean("cut_margin", v).apply(); }
+
     // 0 system, 1 portrait, 2 landscape
     public int orientationLock() { return sp.getInt("orientation", 0); }
     public void setOrientationLock(int v) { edit().putInt("orientation", v).apply(); }

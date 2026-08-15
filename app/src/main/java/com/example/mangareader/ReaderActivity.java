@@ -19,13 +19,16 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.LruCache;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -105,6 +108,10 @@ public class ReaderActivity extends Activity {
     private SeekBar slider;
     private boolean updatingSlider;
     private boolean uiVisible = true;
+    private TextView cropBtn;
+    private TextView chapterBtn;
+    private final List<Chapter> chapters = new ArrayList<>();
+    private FrameLayout drawerWrap;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -222,6 +229,16 @@ public class ReaderActivity extends Activity {
         toolBar.addView(tool("Jarak", v -> showSpacingDialog()));
         toolBar.addView(tool("Warna", v -> showAdjustDialog()));
 
+        cropBtn = tool("✂", v -> toggleCrop());
+        cropBtn.setMinWidth(dp(48));
+        updateCropButton();
+        toolBar.addView(cropBtn);
+
+        chapterBtn = tool("☰", v -> toggleDrawer());
+        chapterBtn.setMinWidth(dp(48));
+        chapterBtn.setVisibility(View.GONE);
+        toolBar.addView(chapterBtn);
+
         bookmarkBtn = tool("☆", v -> toggleBookmark());
         bookmarkBtn.setMinWidth(dp(48));
         toolBar.addView(bookmarkBtn);
@@ -327,8 +344,8 @@ public class ReaderActivity extends Activity {
             try {
                 File cbz = new File(CacheManager.zipDir(this), "manga.cbz");
                 copyUri(Uri.parse(uri), cbz);
-                List<File> list = extractPages(cbz, CacheManager.pagesDir(this));
-                runOnUiThread(() -> onLoaded(list));
+                PageSet ps = extractPages(cbz, CacheManager.pagesDir(this));
+                runOnUiThread(() -> onLoaded(ps));
             } catch (Exception ex) {
                 runOnUiThread(() -> {
                     Toast.makeText(this, "Gagal membuka file.", Toast.LENGTH_LONG).show();
@@ -338,13 +355,14 @@ public class ReaderActivity extends Activity {
         }).start();
     }
 
-    private void onLoaded(List<File> list) {
-        if (list.isEmpty()) {
+    private void onLoaded(PageSet ps) {
+        if (ps.files.isEmpty()) {
             Toast.makeText(this, "Tidak ada gambar di dalam arsip.", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
-        pages = list;
+        pages = ps.files;
+        buildChapters(ps.labels);
         root.removeView(loading);
         slider.setMax(pages.size() - 1);
         setupPager(restoreStart(), false);
@@ -651,9 +669,46 @@ public class ReaderActivity extends Activity {
         if (b != null) return b;
         b = Thumbs.decode(file, modeDual() ? 1600 : 2200);
         if (b != null) {
+            if (prefs.cutMargin()) {
+                b = cutMargins(b);
+            }
             cache.put(file, b);
         }
         return b;
+    }
+
+    private Bitmap cutMargins(Bitmap b) {
+        int w = b.getWidth();
+        int h = b.getHeight();
+        int top = marginEnd(b, 0, h, 1);
+        int bottom = marginEnd(b, h - 1, -1, -1);
+        if (top < dp(3) || bottom > h - 1 - dp(3)) return b;
+        if (bottom - top + 1 < h * 0.3f) return b;
+        if (bottom - top + 1 >= h - dp(4)) return b;
+        Bitmap out = Bitmap.createBitmap(b, 0, top, w, bottom - top + 1);
+        if (out != b) b.recycle();
+        return out;
+    }
+
+    private static int marginEnd(Bitmap b, int fromY, int stopY, int stepY) {
+        int w = b.getWidth();
+        int[] row = new int[w];
+        int darkLimit = Math.max(1, w / 50);
+        for (int y = fromY; (stepY > 0 ? y < stopY : y > stopY); y += stepY) {
+            b.getPixels(row, 0, w, 0, y, w, 1);
+            int dark = 0;
+            for (int x = 0; x < w; x += 4) {
+                int c = row[x];
+                if (((c >> 24) & 0xFF) > 200) {
+                    int r = (c >> 16) & 0xFF;
+                    int g = (c >> 8) & 0xFF;
+                    int bl = c & 0xFF;
+                    if (r < 230 || g < 230 || bl < 230) dark++;
+                }
+            }
+            if (dark >= darkLimit) return y;
+        }
+        return stopY;
     }
 
     private void applyFilterToViews() {
@@ -680,6 +735,19 @@ public class ReaderActivity extends Activity {
     }
 
     // ---------- toolbar actions ----------
+
+    private void toggleCrop() {
+        prefs.setCutMargin(!prefs.cutMargin());
+        cache.evictAll();
+        if (adapter != null) adapter.notifyDataSetChanged();
+        if (contAdapter != null) contAdapter.notifyDataSetChanged();
+        updateCropButton();
+    }
+
+    private void updateCropButton() {
+        if (cropBtn == null) return;
+        cropBtn.setTextColor(prefs.cutMargin() ? 0xFF7C8CFF : Color.WHITE);
+    }
 
     private void showDirectionDialog() {
         String[] opts = {"Kiri ke Kanan (LTR)", "Kanan ke Kiri (RTL)"};
@@ -1014,7 +1082,7 @@ public class ReaderActivity extends Activity {
         }
     }
 
-    private static List<File> extractPages(File cbz, File pagesDir) throws IOException {
+    private static PageSet extractPages(File cbz, File pagesDir) throws IOException {
         if (pagesDir.exists()) {
             File[] old = pagesDir.listFiles();
             if (old != null) {
@@ -1040,7 +1108,7 @@ public class ReaderActivity extends Activity {
         }
         Collections.sort(names, ReaderActivity::naturalCompare);
 
-        List<File> out = new ArrayList<>();
+        PageSet ps = new PageSet();
         try (ZipFile zf = new ZipFile(cbz)) {
             for (int i = 0; i < names.size(); i++) {
                 ZipEntry entry = zf.getEntry(names.get(i));
@@ -1054,10 +1122,19 @@ public class ReaderActivity extends Activity {
                         o.write(buf, 0, n);
                     }
                 }
-                out.add(file);
+                ps.files.add(file);
+                ps.labels.add(folderOf(names.get(i)));
             }
         }
-        return out;
+        return ps;
+    }
+
+    private static String folderOf(String entryName) {
+        int i = entryName.indexOf('/');
+        if (i > 0 && i < entryName.length() - 1) {
+            return entryName.substring(0, i);
+        }
+        return null;
     }
 
     private static boolean hasImageExt(String name) {
@@ -1104,6 +1181,154 @@ public class ReaderActivity extends Activity {
             }
         }
         return Integer.compare(a.length(), b.length());
+    }
+
+    private static class Chapter {
+        final String name;
+        final int start;
+        final int count;
+
+        Chapter(String name, int start, int count) {
+            this.name = name;
+            this.start = start;
+            this.count = count;
+        }
+    }
+
+    static final class PageSet {
+        final List<File> files = new ArrayList<>();
+        final List<String> labels = new ArrayList<>();
+    }
+
+    private void buildChapters(List<String> labels) {
+        chapters.clear();
+        String cur = null;
+        int start = 0;
+        boolean anyFolder = false;
+        for (int i = 0; i < labels.size(); i++) {
+            String l = labels.get(i);
+            if (l != null) anyFolder = true;
+            if (l == null) l = name;
+            if (cur == null) {
+                cur = l;
+                start = i;
+            } else if (!cur.equals(l)) {
+                chapters.add(new Chapter(cur, start, i - start));
+                cur = l;
+                start = i;
+            }
+        }
+        if (cur != null) {
+            chapters.add(new Chapter(cur, start, labels.size() - start));
+        }
+        if (chapterBtn != null) {
+            chapterBtn.setVisibility(anyFolder && chapters.size() >= 2 ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (!pages.isEmpty()) {
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                goDelta(1);
+                return true;
+            }
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                goDelta(-1);
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    private void toggleDrawer() {
+        if (drawerWrap != null) {
+            closeDrawer();
+        } else {
+            openDrawer();
+        }
+    }
+
+    private void openDrawer() {
+        if (chapters.isEmpty()) return;
+        int panelW = Math.min(dp(280), (int) (root.getWidth() * 0.8f));
+        drawerWrap = new FrameLayout(this);
+        drawerWrap.setLayoutParams(new FrameLayout.LayoutParams(MATCH, MATCH));
+
+        View scrim = new View(this);
+        scrim.setBackgroundColor(0x66000000);
+        scrim.setOnClickListener(v -> closeDrawer());
+        drawerWrap.addView(scrim, new FrameLayout.LayoutParams(MATCH, MATCH));
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setBackgroundColor(0xEE1B1E24);
+        panel.setTranslationX(panelW);
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(panelW, MATCH, Gravity.RIGHT);
+        drawerWrap.addView(panel, plp);
+        panel.animate().translationX(0).setDuration(220)
+                .setInterpolator(new DecelerateInterpolator()).start();
+
+        TextView header = new TextView(this);
+        header.setText("Daftar Bab");
+        header.setTextColor(Color.WHITE);
+        header.setTextSize(16);
+        header.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
+        header.setPadding(dp(16), dp(18), dp(16), dp(10));
+        panel.addView(header, new LinearLayout.LayoutParams(MATCH, WRAP));
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this);
+        list.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(list);
+        panel.addView(scroll, new LinearLayout.LayoutParams(MATCH, 0, 1));
+
+        for (Chapter c : chapters) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(16), dp(12), dp(16), dp(12));
+            row.setClickable(true);
+            row.setFocusable(true);
+            row.setBackgroundColor(Color.TRANSPARENT);
+            row.setOnClickListener(v -> {
+                setCurrentPage(c.start);
+                closeDrawer();
+            });
+            TextView tv = new TextView(this);
+            tv.setText(c.name);
+            tv.setTextColor(Color.WHITE);
+            tv.setTextSize(14);
+            tv.setSingleLine(true);
+            tv.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+            row.addView(tv, new LinearLayout.LayoutParams(0, WRAP, 1));
+            TextView cnt = new TextView(this);
+            cnt.setText(String.valueOf(c.count));
+            cnt.setTextColor(Color.LTGRAY);
+            cnt.setTextSize(12);
+            row.addView(cnt, new LinearLayout.LayoutParams(WRAP, WRAP));
+            list.addView(row, new LinearLayout.LayoutParams(MATCH, WRAP));
+        }
+
+        root.addView(drawerWrap);
+    }
+
+    private void closeDrawer() {
+        if (drawerWrap == null) return;
+        FrameLayout wrap = drawerWrap;
+        drawerWrap = null;
+        View panel = wrap.getChildAt(1);
+        panel.animate().translationX(panel.getWidth()).setDuration(180)
+                .setInterpolator(new DecelerateInterpolator())
+                .withEndAction(() -> root.removeView(wrap)).start();
     }
 
     private int dp(int value) {
