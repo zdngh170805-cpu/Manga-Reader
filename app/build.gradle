@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.mangareader'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.example.mangareader'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.viewpager2:viewpager2:1.1.0'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+}

@@ -1,0 +1,1147 @@
+PROMPT DETAIL — ANDROID COMIC / MANGA READER
+
+TUJUAN UTAMA
+
+Buat sebuah aplikasi Android native bernama “Comic Reader” yang
+berfungsi sebagai pembaca manga, manhwa, comic, doujin, artbook, dan
+image-based comic secara offline.
+
+Aplikasi harus terasa seperti aplikasi comic reader Android profesional:
+cepat, ringan, responsif, fokus pada area gambar, memiliki dark theme
+sebagai tampilan utama, serta menyediakan kontrol pembacaan yang
+lengkap.
+
+REFERENSI VISUAL
+
+Gunakan referensi screenshot hanya untuk memahami: - struktur layout, -
+hierarki toolbar, - bentuk popup, - posisi kontrol, - pola halaman
+Settings, - gaya dark UI, - perilaku page reader, - page slider, - page
+layout, - page scrolling, - page spacing, - file browser.
+
+JANGAN menyalin logo, watermark, nama situs, artwork manga, karakter,
+atau aset berhak cipta dari screenshot. Semua branding dan aset visual
+harus dibuat original.
+
+================================================== 1. ARSITEKTUR
+APLIKASI ==================================================
+
+Buat aplikasi dengan beberapa area utama:
+
+1.  File Browser / Storage
+2.  Directory Browser
+3.  History
+4.  Bookmark
+5.  Comic Reader
+6.  Reader Overlay Controls
+7.  Settings
+8.  Cache Management
+9.  Resume Reading
+10. Information / About
+
+Gunakan arsitektur aplikasi yang modular agar fitur reader, storage,
+settings, cache, dan database tidak saling bergantung secara berlebihan.
+
+Prioritaskan: - performa, - stabilitas, - penggunaan RAM rendah, -
+scrolling halus, - loading gambar cepat, - state persistence, - dukungan
+file besar, - dukungan layar portrait dan landscape.
+
+================================================== 2. HALAMAN UTAMA /
+FILE BROWSER ==================================================
+
+Buat halaman file browser dengan dark theme.
+
+Bagian atas mempunyai tab atau navigation:
+
+-   Storage
+-   Directory
+-   History
+-   Bookmark
+
+Storage menampilkan: - Recent - Internal Storage / Device - SD Card -
+folder - file comic - file image - archive comic
+
+Contoh path: /storage/emulated/0 /storage/XXXX-XXXX
+
+Jika SD Card tersedia, tampilkan sebagai lokasi terpisah.
+
+Recent: - tampilkan file yang terakhir dibuka, - tampilkan nama file, -
+folder path, - thumbnail jika tersedia, - waktu terakhir dibuka jika
+memungkinkan.
+
+Directory: - navigasi folder, - tombol kembali, - breadcrumb/path, -
+daftar folder, - daftar file, - sorting.
+
+History: - daftar comic yang pernah dibuka, - posisi halaman terakhir, -
+thumbnail, - nama file, - tombol resume.
+
+Bookmark: - daftar halaman yang ditandai, - comic asal, - nomor
+halaman, - thumbnail, - tombol membuka langsung halaman tersebut.
+
+Gunakan list view yang sederhana dan cepat.
+
+================================================== 3. FLOATING ACTION
+BUTTON ==================================================
+
+Tambahkan floating button di bagian kanan bawah file browser.
+
+Fungsinya dapat berupa: - membuka file terakhir, - quick resume, -
+membuka file picker.
+
+Sediakan opsi untuk mengaktifkan atau menonaktifkannya melalui Settings.
+
+================================================== 4. FORMAT FILE
+==================================================
+
+Minimal dukung:
+
+IMAGE: - JPG - JPEG - PNG - WEBP - GIF jika memungkinkan
+
+COMIC ARCHIVE: - ZIP - CBZ - RAR jika library yang digunakan
+memungkinkan - format archive lain hanya jika aman dan stabil.
+
+Jangan memuat seluruh archive ke RAM.
+
+Gunakan streaming atau random access bila memungkinkan.
+
+Urutkan halaman berdasarkan nama file secara natural:
+
+1.webp 2.webp 3.webp … 10.webp
+
+Jangan mengurutkan secara alfabet biasa sehingga 10.webp muncul sebelum
+2.webp.
+
+================================================== 5. COMIC READER
+==================================================
+
+Reader adalah fitur utama aplikasi.
+
+Gunakan layout fullscreen.
+
+Header dalam kondisi normal:
+
+[Back] COMIC ExE 73 225.webp […]
+
+Nama volume/folder ditampilkan sebagai title.
+
+Nama file ditampilkan sebagai subtitle.
+
+Toolbar dapat disembunyikan ketika pengguna mengetuk layar.
+
+Ketika toolbar disembunyikan: - gambar menggunakan area layar sebanyak
+mungkin, - status bar dapat disembunyikan, - navigation bar dapat
+disembunyikan, - overlay UI tidak mengganggu pembacaan.
+
+================================================== 6. READER TOOLBAR
+==================================================
+
+Buat toolbar dengan ikon minimalis.
+
+Fungsi yang dibutuhkan:
+
+1.  Back
+2.  Navigation
+3.  Rotate / Orientation
+4.  Page Layout
+5.  Crop
+6.  Image Adjustment
+7.  Bookmark
+8.  More
+
+Gunakan ikon yang mudah dikenali.
+
+Jangan terlalu banyak teks pada toolbar.
+
+Toolbar harus tetap mudah digunakan pada layar kecil.
+
+================================================== 7. PAGE LAYOUT
+==================================================
+
+Buat popup bernama:
+
+“Page layout”
+
+Pilihan:
+
+-   Off
+-   Single page
+-   Dual pages
+-   Auto
+
+OFF: Reader menggunakan mode dasar yang dipilih.
+
+SINGLE PAGE: Tampilkan satu halaman dalam satu waktu.
+
+DUAL PAGES: Tampilkan dua halaman secara berdampingan.
+
+AUTO: Aplikasi menentukan layout berdasarkan: - orientasi perangkat, -
+ukuran halaman, - aspect ratio, - ukuran viewport.
+
+Perilaku Auto: - portrait: default single page, - landscape/tablet:
+default dual page jika ruang mencukupi.
+
+Sediakan opsi untuk menyesuaikan urutan halaman dalam mode dual page.
+
+================================================== 8. RTL / LTR
+==================================================
+
+Reader harus mendukung:
+
+LTR: Left To Right
+
+RTL: Right To Left
+
+Untuk manga Jepang gunakan RTL.
+
+Untuk comic Barat gunakan LTR.
+
+Mode reading direction memengaruhi: - swipe, - tombol next/previous, -
+urutan dual pages, - page scrolling, - page preloading, - progress
+navigation.
+
+Jangan hanya membalik animasi; seluruh logika navigasi harus mengikuti
+direction.
+
+================================================== 9. PAGE SCROLLING
+==================================================
+
+Buat popup:
+
+“Page scrolling”
+
+Pilihan visual:
+
+-   Right
+-   Left
+-   Right + Vertical
+-   Left + Vertical
+
+Right: Halaman bergerak ke kanan.
+
+Left: Halaman bergerak ke kiri.
+
+Right + Vertical: Mendukung pembacaan horizontal dengan transisi
+vertikal.
+
+Left + Vertical: Versi berlawanan untuk RTL.
+
+Reader harus mendukung: - swipe, - fling, - tap navigation, - drag
+ketika zoom, - vertical continuous scrolling jika mode dipilih.
+
+================================================== 10. PAGE SPACING
+==================================================
+
+Buat dialog:
+
+“Page spacing”
+
+Terdapat: - checkbox enable, - slider, - nilai percentage.
+
+Contoh: -30.0%
+
+Slider harus dapat mengatur jarak antar halaman.
+
+Nilai negatif: - halaman dapat lebih rapat, - cocok untuk image split
+atau scan tertentu.
+
+Nilai positif: - memberikan gap antar halaman.
+
+Perubahan harus langsung terlihat.
+
+================================================== 11. PAGE DIVIDING
+LINE ==================================================
+
+Tambahkan pengaturan:
+
+Page dividing line - dual pages
+
+Jika aktif: - tampilkan garis pemisah di antara dua halaman.
+
+Tambahkan:
+
+Page dividing line - scroll pages
+
+Jika aktif: - tampilkan garis pemisah antar halaman ketika scrolling.
+
+Garis harus halus dan tidak mengganggu manga.
+
+================================================== 12. FULL SCREEN
+==================================================
+
+Pengaturan:
+
+Full screen
+
+Deskripsi: “Hide status bar, navigation bar”
+
+Ketika aktif: - sembunyikan status bar, - sembunyikan navigation bar, -
+reader menggunakan area layar maksimal.
+
+Pastikan aplikasi menangani edge-to-edge Android dengan benar.
+
+Jangan sampai konten tertutup oleh: - notch, - punch-hole, - navigation
+gesture area.
+
+================================================== 13. PUNCH-HOLE
+DISPLAY ==================================================
+
+Sediakan:
+
+Punch hole display - portrait
+
+Punch hole display - landscape
+
+Tujuan: memperluas area image rendering agar layar di sekitar kamera
+punch-hole dapat dimanfaatkan.
+
+Reader harus memperhatikan: - display cutout, - safe area, -
+orientation, - status bar, - edge-to-edge.
+
+Jangan memaksa gambar berada di bawah kamera jika hasilnya mengganggu
+pembacaan.
+
+================================================== 14. ZOOM DAN PAN
+==================================================
+
+Implementasikan:
+
+-   pinch-to-zoom,
+-   double tap zoom,
+-   zoom in,
+-   zoom out,
+-   pan,
+-   drag.
+
+Saat zoom aktif: - jangan langsung mengganti halaman ketika gesture
+sebenarnya dimaksudkan untuk pan.
+
+Double tap: - pertama memperbesar, - kedua mengembalikan ke
+fit-to-screen.
+
+Zoom harus memiliki batas maksimum agar tidak menyebabkan penggunaan
+memory berlebihan.
+
+================================================== 15. IMAGE SCALING
+==================================================
+
+Sediakan beberapa strategi rendering:
+
+-   Fit Width
+-   Fit Height
+-   Fit Screen
+-   Original Size
+
+Default: Fit Screen atau Fit Width tergantung jenis halaman.
+
+Untuk manga panjang: Fit Width dapat digunakan dalam vertical scrolling.
+
+Untuk halaman standar: Fit Screen.
+
+================================================== 16. IMAGE ADJUSTMENT
+==================================================
+
+Tambahkan image adjustment sederhana:
+
+-   brightness,
+-   contrast,
+-   grayscale jika memungkinkan,
+-   sharpen opsional,
+-   invert opsional.
+
+Jangan melakukan pemrosesan permanen terhadap file asli.
+
+Filter hanya diterapkan pada rendering.
+
+================================================== 17. PAGE NAVIGATION
+==================================================
+
+Bagian bawah reader menampilkan:
+
+226-227 / 641
+
+Contoh: - Single page: 226 / 641 - Dual page: 226-227 / 641
+
+Tambahkan progress slider.
+
+Slider harus: - dapat disentuh, - dapat digeser, - memperbarui halaman
+secara cepat, - tidak memuat seluruh halaman saat slider digeser.
+
+Gunakan thumbnail preview atau page number preview jika memungkinkan.
+
+================================================== 18. PAGE PRELOADING
+==================================================
+
+Untuk performa:
+
+Saat pengguna berada di halaman N: - preload N+1, - preload N-1, -
+jangan preload terlalu banyak.
+
+Pada dual page: - preload pasangan halaman berikutnya.
+
+Gunakan LRU cache.
+
+Jika RAM rendah: - kurangi ukuran cache otomatis.
+
+================================================== 19. MEMORY MANAGEMENT
+==================================================
+
+Comic dapat memiliki gambar beresolusi sangat tinggi.
+
+Jangan decode gambar dalam ukuran original jika tidak diperlukan.
+
+Gunakan: - sampled decoding, - bitmap reuse, - downsampling, - memory
+cache, - disk cache, - lifecycle-aware loading.
+
+Ketika berpindah halaman: - release bitmap yang tidak diperlukan.
+
+Pastikan tidak terjadi: - OutOfMemoryError, - memory leak, - bitmap
+accumulation.
+
+================================================== 20. CACHE DATA
+==================================================
+
+Buat Settings > Cache Data.
+
+Pilihan:
+
+Set thumbnails storage
+
+Contoh informasi: Thumbnails 16 MB / 300 MB
+
+Clear Thumbnails
+
+Deskripsi: Clear all thumbnails
+
+Set ZIP-file cache retention period
+
+Contoh: 3 days
+
+Clear ZIP-file cache
+
+Tampilkan ukuran cache.
+
+Clear resume cache
+
+Deskripsi: Clear all resume page data
+
+Clear bookmarks
+
+Deskripsi: Clear all bookmarks
+
+Clear history
+
+Deskripsi: Clear all histories
+
+Clear all cache
+
+Deskripsi: Clear all cache data
+
+Setiap tindakan destructive harus memiliki confirmation dialog.
+
+================================================== 21. THUMBNAIL SYSTEM
+==================================================
+
+Buat sistem thumbnail:
+
+-   generate thumbnail saat file pertama kali ditemukan,
+-   simpan ke cache,
+-   jangan regenerate setiap kali membuka folder,
+-   gunakan ukuran thumbnail yang konsisten,
+-   hapus otomatis sesuai cache limit.
+
+Jika thumbnail belum tersedia: - tampilkan placeholder.
+
+================================================== 22. RESUME READING
+==================================================
+
+Simpan: - comic path, - file identifier, - page index, - scroll
+position, - zoom state jika relevan, - reading direction, - timestamp.
+
+Ketika comic dibuka kembali: tampilkan halaman terakhir.
+
+Contoh: Comic memiliki 641 halaman. Pengguna terakhir membaca halaman
+226. Saat dibuka kembali: langsung ke halaman 226.
+
+================================================== 23. GOOGLE DRIVE SYNC
+==================================================
+
+Sediakan fitur beta:
+
+“Sync resume page (beta)”
+
+Deskripsi: Sync your resume page using Google Drive
+
+Fitur ini opsional.
+
+Jika belum dikonfigurasi: - jangan memaksa login.
+
+Jika user mengaktifkan: - sinkronkan posisi baca, - bookmark jika
+diperlukan, - gunakan conflict resolution yang aman.
+
+Jangan upload file manga ke cloud secara otomatis.
+
+Sinkronkan hanya metadata jika fitur ini memang hanya untuk resume.
+
+================================================== 24. SETTINGS SCREEN
+==================================================
+
+Settings menggunakan dark theme.
+
+Struktur:
+
+GENERAL
+
+Language System Default
+
+Encoding UTF-8
+
+Theme Switch dark, light theme - System
+
+Reset Settings Reset all settings
+
+LIST VIEW
+
+Show statusbar Show statusbar for time, battery
+
+Quick view floating button Open the last compressed file
+
+Show folder path
+
+Left Scrollbar Display the file list scrollbar on the left side
+
+RESUME PAGE
+
+Resume page Select whether to use the resume page
+
+Sync resume page (beta) Sync your resume page using Google Drive
+
+IMAGE VIEW
+
+Full screen Hide status bar, navigation bar
+
+Page dividing line - dual pages Show a dividing line between dual pages
+
+Page dividing line - scroll pages Show a dividing line between scroll
+pages
+
+Punch hole display - portrait Expands the image area to punch holes
+
+Punch hole display - landscape Expands the image area to punch holes
+
+CACHE DATA
+
+Set thumbnails storage Thumbnails XX MB / XXX MB
+
+Clear Thumbnails Clear all thumbnails
+
+Set zip-file cache retention period X days
+
+Clear zip-file cache X MB
+
+Clear resume cache Clear all resume page data
+
+Clear bookmarks Clear all bookmarks
+
+Clear history Clear all histories
+
+Clear all cache Clear all cache data
+
+INFORMATION
+
+Version
+
+About
+
+Privacy
+
+Licenses
+
+Open Source Licenses
+
+================================================== 25. SETTINGS UI
+==================================================
+
+Gunakan struktur visual:
+
+SECTION TITLE berwarna light blue.
+
+SETTING TITLE warna putih / hampir putih.
+
+SETTING DESCRIPTION warna abu-abu.
+
+CONTROL berada di kanan: - checkbox, - switch, - radio button, - slider.
+
+Divider: warna charcoal sedikit lebih terang.
+
+Jarak antar item harus cukup besar agar nyaman disentuh.
+
+Minimum touch target: sekitar 48dp.
+
+================================================== 26. POPUP DIALOG
+==================================================
+
+Popup seperti:
+
+Page layout Page scrolling Page spacing
+
+Gunakan: - dark charcoal dialog, - rounded corners ringan, -
+shadow/elevation, - text putih, - accent biru, - tombol OK jika
+diperlukan.
+
+Jangan membuat dialog terlalu besar.
+
+================================================== 27. DARK THEME
+==================================================
+
+Gunakan dark theme sebagai default.
+
+Palet:
+
+Background: dark charcoal / near black.
+
+Toolbar: sedikit lebih terang dari background.
+
+Dialog: dark gray.
+
+Primary accent: light blue.
+
+Primary text: white atau near white.
+
+Secondary text: medium gray.
+
+Divider: dark gray.
+
+Progress slider: blue accent.
+
+Checkbox: blue ketika aktif.
+
+Switch: blue ketika aktif.
+
+Jangan gunakan warna terlalu terang untuk area besar.
+
+================================================== 28. LANDSCAPE MODE
+==================================================
+
+Saat perangkat landscape:
+
+-   manfaatkan lebar layar,
+-   toolbar tetap ringkas,
+-   dual page menjadi pilihan utama dalam Auto,
+-   page spacing tetap konsisten,
+-   punch-hole setting landscape diterapkan,
+-   bottom progress bar tidak menutupi gambar.
+
+Jika dual page aktif: halaman harus memiliki tinggi yang sama bila
+memungkinkan.
+
+================================================== 29. PORTRAIT MODE
+==================================================
+
+Saat portrait:
+
+-   default single page,
+-   gambar fit width atau fit screen,
+-   toolbar dapat disembunyikan,
+-   bottom progress overlay bersifat minimal,
+-   dukung vertical scroll.
+
+================================================== 30. RESPONSIVE DESIGN
+==================================================
+
+Aplikasi harus bekerja pada:
+
+-   smartphone kecil,
+-   smartphone modern,
+-   layar 18:9,
+-   19.5:9,
+-   tablet,
+-   landscape,
+-   layar dengan notch,
+-   layar dengan punch-hole.
+
+Jangan menggunakan posisi absolut yang menyebabkan UI rusak pada
+resolusi berbeda.
+
+Gunakan responsive layout.
+
+================================================== 31. ORIENTATION
+==================================================
+
+Tombol rotate dapat: - mengikuti system, - portrait, - landscape.
+
+Simpan preference jika user menginginkannya.
+
+Saat orientation berubah: - jangan kehilangan halaman, - jangan reset
+scroll, - pertahankan zoom bila memungkinkan.
+
+================================================== 32. BOOKMARK
+==================================================
+
+Pengguna dapat bookmark halaman.
+
+Bookmark menyimpan: - comic, - page, - timestamp, - optional note.
+
+Pada reader: ikon bookmark berubah menjadi active state ketika halaman
+telah di-bookmark.
+
+================================================== 33. HISTORY
+==================================================
+
+History mencatat: - comic terakhir dibuka, - timestamp, - halaman
+terakhir, - thumbnail.
+
+Sediakan: - clear history, - resume, - remove item.
+
+================================================== 34. SORTING
+==================================================
+
+File browser mendukung sorting:
+
+-   Name ascending
+-   Name descending
+-   Date modified
+-   Date opened
+-   Size
+
+Folder dapat selalu ditempatkan di atas.
+
+================================================== 35. SEARCH
+==================================================
+
+Jika memungkinkan, tambahkan search.
+
+Search berdasarkan: - nama file, - folder, - extension.
+
+Search harus cepat dan tidak melakukan scan filesystem penuh setiap kali
+user mengetik.
+
+================================================== 36. ACCESS STORAGE
+==================================================
+
+Gunakan Android Storage Access Framework jika diperlukan.
+
+Dukung: - Android modern, - scoped storage, - internal storage, - SD
+Card.
+
+Jangan bergantung pada akses root.
+
+Jika izin diperlukan: tampilkan penjelasan yang jelas kepada user.
+
+================================================== 37. FILE SCANNING
+==================================================
+
+Scanner harus:
+
+-   menemukan comic image,
+-   menemukan archive,
+-   membuat thumbnail,
+-   menyimpan metadata,
+-   tidak memblok UI thread.
+
+Gunakan background coroutine/thread.
+
+Tampilkan progress jika scan besar.
+
+================================================== 38. ARCHIVE READER
+==================================================
+
+Untuk ZIP/CBZ:
+
+-   buka archive,
+-   baca daftar entry,
+-   filter hanya image,
+-   urutkan natural,
+-   tampilkan sebagai halaman.
+
+Jangan mengekstrak seluruh archive ke storage kecuali diperlukan.
+
+Jika menggunakan temporary extraction: - gunakan cache, - hapus
+berdasarkan retention period.
+
+================================================== 39. ERROR HANDLING
+==================================================
+
+Tangani:
+
+-   file rusak,
+-   image tidak dapat decode,
+-   archive rusak,
+-   storage tidak tersedia,
+-   SD Card dilepas,
+-   permission ditolak,
+-   file dihapus,
+-   out of memory.
+
+Tampilkan error yang mudah dimengerti.
+
+Jangan crash.
+
+================================================== 40. READER GESTURES
+==================================================
+
+Default gestures:
+
+Single tap: show/hide UI.
+
+Swipe: next/previous page.
+
+Horizontal swipe: page navigation.
+
+Vertical swipe: scroll jika mode vertical aktif.
+
+Pinch: zoom.
+
+Double tap: zoom toggle.
+
+Long press: optional menu.
+
+Jika zoom aktif: prioritaskan pan dibanding page navigation.
+
+================================================== 41. UI ANIMATION
+==================================================
+
+Animasi harus cepat dan halus.
+
+Gunakan: - fade toolbar, - smooth page transition, - slider animation, -
+popup scale/fade ringan.
+
+Hindari animasi berat yang mengganggu pembacaan.
+
+User harus dapat mematikan animasi jika memungkinkan.
+
+================================================== 42. ACCESSIBILITY
+==================================================
+
+Sediakan:
+
+-   content descriptions untuk ikon,
+-   touch target minimum 48dp,
+-   kontras warna cukup,
+-   scalable text,
+-   screen reader support,
+-   jangan hanya mengandalkan warna untuk menunjukkan state.
+
+================================================== 43. PERFORMANCE
+TARGET ==================================================
+
+Target:
+
+-   aplikasi membuka reader dengan cepat,
+-   halaman berikutnya tampil tanpa jeda panjang,
+-   scrolling stabil,
+-   gesture tidak patah-patah,
+-   penggunaan RAM terkendali,
+-   thumbnail loading asynchronous.
+
+Jangan melakukan image decoding pada main/UI thread.
+
+================================================== 44. DATA PERSISTENCE
+==================================================
+
+Gunakan database lokal untuk:
+
+-   history,
+-   bookmarks,
+-   resume position,
+-   settings jika diperlukan.
+
+Gunakan key/path yang stabil untuk mengidentifikasi comic.
+
+Jika file dipindahkan: jangan langsung membuat history duplicate jika
+identitas file masih dapat dikenali.
+
+================================================== 45. SETTINGS RESET
+==================================================
+
+Reset Settings: mengembalikan preference aplikasi ke default.
+
+Jangan menghapus: - comic files, - user files, - SD Card content.
+
+Berikan confirmation dialog.
+
+Pisahkan: Reset Settings dan Clear All Cache.
+
+================================================== 46. VISUAL STYLE
+==================================================
+
+Tampilan harus:
+
+-   dark,
+-   minimal,
+-   modern,
+-   native Android,
+-   compact,
+-   mudah dibaca,
+-   tidak penuh dekorasi.
+
+Gunakan: - rounded dialogs, - Material controls, - thin dividers, -
+subtle elevation, - clean icons.
+
+Jangan membuat UI seperti website.
+
+================================================== 47. READER LAYOUT
+DETAIL ==================================================
+
+Struktur:
+
+ROOT | +– Top App Bar | +– Back | +– Comic Title | +– File Name | +–
+More | +– Reader Toolbar | +– Navigation | +– Rotate | +– Page Layout |
++– Crop | +– Image Adjustment | +– Bookmark | +– More | +– Image Canvas
+| +– Page 1 | +– Page 2 jika dual-page | +– Bottom Overlay +– Page
+Indicator +– Progress Slider
+
+Ketika UI disembunyikan: Top App Bar Reader Toolbar Bottom Overlay
+
+semuanya menghilang.
+
+================================================== 48. PAGE INDICATOR
+==================================================
+
+Gunakan format:
+
+Single: 226 / 641
+
+Dual: 226-227 / 641
+
+Jika halaman belum diketahui: Loading...
+
+Jika archive memiliki halaman non-image: jangan hitung sebagai halaman
+reader.
+
+================================================== 49. THUMBNAIL PREVIEW
+==================================================
+
+Saat slider digeser: opsional tampilkan popup thumbnail.
+
+Popup: - thumbnail halaman, - nomor halaman, - progress.
+
+Tujuannya memudahkan navigasi pada comic dengan ratusan halaman.
+
+================================================== 50. ORIGINAL BRANDING
+==================================================
+
+Nama aplikasi harus original.
+
+Contoh nama: - InkFlow Reader - Panel Reader - MangaShelf - PageNest -
+ComicFlow
+
+Jangan menggunakan: - nama aplikasi referensi, - logo referensi, -
+watermark situs, - nama situs dari screenshot.
+
+================================================== 51. PLACEHOLDER DATA
+==================================================
+
+Untuk prototype gunakan:
+
+Comic: Sample Comic
+
+Volume: Volume 01
+
+File: 001.webp
+
+Page count: 641
+
+Thumbnail: gunakan placeholder generik.
+
+Jangan menggunakan halaman manga berhak cipta dari screenshot sebagai
+asset aplikasi.
+
+================================================== 52. IMPLEMENTATION
+GUIDELINES ==================================================
+
+Jika menggunakan Kotlin: - Kotlin - Android SDK modern - Jetpack -
+Coroutines - ViewModel - Room jika database diperlukan - DataStore untuk
+preferences - Coil/Glide atau image loader yang sesuai - Storage Access
+Framework
+
+Jika menggunakan Jetpack Compose: gunakan composable yang modular.
+
+Jika menggunakan XML: gunakan Material components dan
+RecyclerView/Lifecycle.
+
+Pisahkan: - UI - Reader engine - Storage - Database - Settings - Cache -
+Image decoding.
+
+================================================== 53. KOMPONEN YANG
+HARUS DIBUAT ==================================================
+
+Minimal:
+
+MainActivity
+
+LibraryScreen
+
+StorageScreen
+
+DirectoryScreen
+
+HistoryScreen
+
+BookmarkScreen
+
+ReaderScreen
+
+ReaderToolbar
+
+PageRenderer
+
+PageNavigation
+
+PageLayoutDialog
+
+PageScrollingDialog
+
+PageSpacingDialog
+
+SettingsScreen
+
+GeneralSettings
+
+ListViewSettings
+
+ResumeSettings
+
+ImageViewSettings
+
+CacheSettings
+
+AboutScreen
+
+ThumbnailCache
+
+ImageCache
+
+ReaderRepository
+
+ComicRepository
+
+BookmarkRepository
+
+HistoryRepository
+
+ResumeRepository
+
+================================================== 54. DEFAULT SETTINGS
+==================================================
+
+Default:
+
+Theme: System
+
+Language: System Default
+
+Encoding: UTF-8
+
+Page Layout: Auto
+
+Portrait: Single page
+
+Landscape: Dual page jika memungkinkan
+
+Reading Direction: RTL untuk manga mode atau user selectable
+
+Full Screen: Enabled untuk reader
+
+Page spacing: 0%
+
+Punch hole: Disabled
+
+Page dividing line: Disabled
+
+Quick view floating button: Enabled
+
+Show folder path: Enabled
+
+Resume page: Enabled
+
+================================================== 55. KEAMANAN DAN
+PRIVASI ==================================================
+
+Aplikasi offline-first.
+
+Jangan mengupload file comic pengguna tanpa izin.
+
+Jangan membaca file di luar lokasi yang diberikan user.
+
+Google Drive sync harus opt-in.
+
+Tidak perlu analytics agresif.
+
+Jangan memasukkan iklan yang menutupi reader.
+
+================================================== 56. HASIL AKHIR YANG
+DIHARAPKAN ==================================================
+
+Hasil akhir harus terasa seperti aplikasi manga/comic reader Android
+sungguhan, bukan sekadar mockup.
+
+Fitur penting yang wajib berfungsi:
+
+[ ] File browser [ ] Internal storage [ ] SD Card melalui Storage Access
+Framework [ ] Image reader [ ] WEBP [ ] JPG/JPEG [ ] PNG [ ] ZIP/CBZ
+jika memungkinkan [ ] Single page [ ] Dual page [ ] Auto layout [ ] RTL
+[ ] LTR [ ] Horizontal scrolling [ ] Vertical scrolling [ ] Page spacing
+[ ] Page dividing line [ ] Full screen [ ] Punch-hole handling [ ] Pinch
+zoom [ ] Double tap zoom [ ] Pan [ ] Page slider [ ] Page indicator [ ]
+Bookmark [ ] History [ ] Resume reading [ ] Thumbnail cache [ ] Image
+cache [ ] ZIP cache [ ] Clear cache [ ] Settings [ ] Dark/light/system
+theme [ ] Orientation support [ ] Error handling [ ] Responsive UI [ ]
+Accessibility
+
+================================================== 57. PRIORITAS
+PENGEMBANGAN ==================================================
+
+Jika waktu development terbatas, prioritaskan:
+
+PRIORITAS 1: Reader engine dan rendering gambar.
+
+PRIORITAS 2: Single/dual page dan RTL/LTR.
+
+PRIORITAS 3: Zoom, pan, swipe, scrolling.
+
+PRIORITAS 4: File browser dan Storage Access Framework.
+
+PRIORITAS 5: Resume, history, bookmark.
+
+PRIORITAS 6: Cache dan thumbnail.
+
+PRIORITAS 7: Settings lengkap.
+
+PRIORITAS 8: Google Drive sync.
+
+================================================== 58. QUALITY BAR
+==================================================
+
+Jangan membuat implementasi palsu hanya untuk menghasilkan tampilan.
+
+Semua tombol utama harus memiliki fungsi nyata.
+
+Jangan membuat: - tombol yang tidak melakukan apa-apa, - slider
+dekoratif, - checkbox yang tidak menyimpan state, - page indicator
+palsu, - reader yang hanya menampilkan satu image statis.
+
+Prototype boleh menggunakan sample data, tetapi arsitektur harus siap
+untuk file comic nyata.
+
+Pastikan state bertahan setelah: - rotation, - background/foreground, -
+activity recreation, - aplikasi ditutup dan dibuka kembali.
+
+================================================== 59. FINAL DESIGN
+DIRECTION ==================================================
+
+Bayangkan produk akhir sebagai:
+
+“Professional Android offline manga reader with a clean dark Material
+interface, high-performance image renderer, advanced page layout
+controls, RTL/LTR support, dual-page reading, zoom/pan, persistent
+reading progress, SD Card support, caching, bookmarks, history, and
+highly configurable reader settings.”
+
+Tampilan harus sederhana ketika membaca, tetapi sangat lengkap ketika
+pengguna membuka Settings.
+
+Reader harus mengutamakan gambar comic. Settings harus mengutamakan
+keteraturan. File browser harus mengutamakan kecepatan. Semua UI harus
+responsif dan nyaman digunakan dengan satu tangan.
+
+Gunakan desain original dan jangan menyalin branding, watermark, logo,
+atau artwork dari screenshot referensi.
